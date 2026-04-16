@@ -10,6 +10,7 @@ import { Transaction, TransactionStage } from './schemas/transaction.schema';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateStageDto } from './dto/update-stage.dto';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { AgentsService } from '../agents/agents.service';
 
 @Injectable()
 export class TransactionsService {
@@ -24,9 +25,22 @@ export class TransactionsService {
     private readonly transactionModel: Model<Transaction>,
 
     private readonly auditLogsService: AuditLogsService,
+    private readonly agentsService: AgentsService,
   ) {}
 
   async create(createDto: CreateTransactionDto): Promise<Transaction> {
+    const listingAgent = await this.agentsService.findById(
+      createDto.listingAgentId,
+    );
+    const sellingAgent = await this.agentsService.findById(
+      createDto.sellingAgentId,
+    );
+
+    if (!listingAgent || !sellingAgent) {
+      throw new BadRequestException(
+        'Invalid agent IDs provided. Please ensure both listing and selling agents exist.',
+      );
+    }
     const transaction = new this.transactionModel({
       ...createDto,
       stage: TransactionStage.AGREEMENT,
@@ -87,6 +101,8 @@ export class TransactionsService {
     const [data, total] = await Promise.all([
       this.transactionModel
         .find()
+        .populate('listingAgentId', 'fullName')
+        .populate('sellingAgentId', 'fullName')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -114,7 +130,7 @@ export class TransactionsService {
 
     if (transaction.listingAgentId === transaction.sellingAgentId) {
       listingAgentCut = totalFee * 0.5;
-      sellingAgentCut = listingAgentCut;
+      sellingAgentCut = 0;
     } else {
       listingAgentCut = totalFee * 0.25;
       sellingAgentCut = totalFee * 0.25;

@@ -4,6 +4,7 @@ import { TransactionsService } from './transactions.service';
 import { TransactionsController } from './transactions.controller';
 import { Transaction, TransactionSchema } from './schemas/transaction.schema';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
+import { AgentsModule } from '../agents/agents.module';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
       { name: Transaction.name, schema: TransactionSchema },
     ]),
     AuditLogsModule,
+    AgentsModule,
   ],
   controllers: [TransactionsController],
   providers: [TransactionsService],
