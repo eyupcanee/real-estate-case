@@ -6,6 +6,7 @@ import { AgentsModule } from './agents/agents.module';
 import { ConfigModule } from '@nestjs/config/dist/config.module';
 import { ConfigService } from '@nestjs/config/dist/config.service';
 import { MongooseModule } from '@nestjs/mongoose/dist/mongoose.module';
+import { AuditLogsModule } from './audit-logs/audit-logs.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { MongooseModule } from '@nestjs/mongoose/dist/mongoose.module';
     }),
     TransactionsModule,
     AgentsModule,
+    AuditLogsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
