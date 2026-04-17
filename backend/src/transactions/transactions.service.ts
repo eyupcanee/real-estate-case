@@ -11,6 +11,7 @@ import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateStageDto } from './dto/update-stage.dto';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AgentsService } from '../agents/agents.service';
+import { PropertiesService } from '../properties/properties.service';
 
 @Injectable()
 export class TransactionsService {
@@ -26,9 +27,30 @@ export class TransactionsService {
 
     private readonly auditLogsService: AuditLogsService,
     private readonly agentsService: AgentsService,
+    private readonly propertiesService: PropertiesService,
   ) {}
 
   async create(createDto: CreateTransactionDto): Promise<Transaction> {
+    const property = await this.propertiesService.findById(
+      createDto.propertyId,
+    );
+    if (!property) {
+      throw new BadRequestException('The specified property does not exist.');
+    }
+
+    const activeTransaction = await this.transactionModel.findOne({
+      propertyId: createDto.propertyId,
+      stage: {
+        $nin: [TransactionStage.COMPLETED, TransactionStage.CANCELLED],
+      },
+    });
+
+    if (activeTransaction) {
+      throw new BadRequestException(
+        'This property already has an active transaction in progress.',
+      );
+    }
+
     const listingAgent = await this.agentsService.findById(
       createDto.listingAgentId,
     );
@@ -101,6 +123,7 @@ export class TransactionsService {
     const [data, total] = await Promise.all([
       this.transactionModel
         .find()
+        .populate('propertyId', 'title location price type')
         .populate('listingAgentId', 'fullName')
         .populate('sellingAgentId', 'fullName')
         .sort({ createdAt: -1 })
@@ -119,6 +142,34 @@ export class TransactionsService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  async cancel(id: string): Promise<Transaction> {
+    const transaction = await this.transactionModel.findById(id);
+    if (!transaction) throw new NotFoundException('Transaction not found');
+
+    if (transaction.stage === TransactionStage.COMPLETED) {
+      throw new BadRequestException(
+        'Cannot cancel a transaction that is already completed.',
+      );
+    }
+
+    if (transaction.stage === TransactionStage.CANCELLED) {
+      throw new BadRequestException('Transaction is already cancelled.');
+    }
+
+    transaction.stage = TransactionStage.CANCELLED;
+
+    const updatedTransaction = await transaction.save();
+
+    await this.auditLogsService.logAction(
+      'TRANSACTION',
+      updatedTransaction._id.toString(),
+      'CANCELLED',
+      updatedTransaction.toObject(),
+    );
+
+    return updatedTransaction;
   }
 
   private calculateCommission(transaction: Transaction) {

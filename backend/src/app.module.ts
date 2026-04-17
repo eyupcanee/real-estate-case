@@ -7,6 +7,7 @@ import { ConfigModule } from '@nestjs/config/dist/config.module';
 import { ConfigService } from '@nestjs/config/dist/config.service';
 import { MongooseModule } from '@nestjs/mongoose/dist/mongoose.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
+import { PropertiesModule } from './properties/properties.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module';
     TransactionsModule,
     AgentsModule,
     AuditLogsModule,
+    PropertiesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

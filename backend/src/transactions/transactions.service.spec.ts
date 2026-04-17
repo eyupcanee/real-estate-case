@@ -5,6 +5,7 @@ import { TransactionsService } from './transactions.service';
 import { Transaction, TransactionStage } from './schemas/transaction.schema';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AgentsService } from '../agents/agents.service';
+import { PropertiesService } from '../properties/properties.service';
 
 interface MockTransaction {
   _id: string;
@@ -26,12 +27,17 @@ describe('TransactionsService', () => {
 
   const mockTransactionModel = {
     findById: jest.fn(),
+    findOne: jest.fn(),
   };
   const mockAuditLogsService = {
     logAction: jest.fn(),
   };
 
   const mockAgentsService = {
+    findById: jest.fn(),
+  };
+
+  const mockPropertiesService = {
     findById: jest.fn(),
   };
 
@@ -45,6 +51,7 @@ describe('TransactionsService', () => {
         },
         { provide: AuditLogsService, useValue: mockAuditLogsService },
         { provide: AgentsService, useValue: mockAgentsService },
+        { provide: PropertiesService, useValue: mockPropertiesService },
       ],
     }).compile();
 
@@ -55,6 +62,83 @@ describe('TransactionsService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('Creation & Double-Selling Protection', () => {
+    it('should throw BadRequestException if property does not exist', async () => {
+      mockPropertiesService.findById.mockResolvedValue(null);
+
+      await expect(
+        service.create({
+          propertyId: 'invalid',
+          totalServiceFee: 1000,
+          listingAgentId: '1',
+          sellingAgentId: '2',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if property has an ACTIVE transaction (Double-Selling)', async () => {
+      mockPropertiesService.findById.mockResolvedValue({ _id: 'prop-1' });
+      mockTransactionModel.findOne.mockResolvedValue({
+        _id: 'existing-tx',
+        stage: TransactionStage.AGREEMENT,
+      });
+
+      await expect(
+        service.create({
+          propertyId: 'prop-1',
+          totalServiceFee: 1000,
+          listingAgentId: '1',
+          sellingAgentId: '2',
+        }),
+      ).rejects.toThrow(
+        'This property already has an active transaction in progress.',
+      );
+    });
+  });
+
+  describe('Cancellation Logic', () => {
+    it('should throw BadRequestException if transaction is already COMPLETED', async () => {
+      const mockTx = { stage: TransactionStage.COMPLETED } as MockTransaction;
+      mockTransactionModel.findById.mockResolvedValue(mockTx);
+
+      await expect(service.cancel('some-id')).rejects.toThrow(
+        'Cannot cancel a transaction that is already completed.',
+      );
+    });
+
+    it('should throw BadRequestException if transaction is already CANCELLED', async () => {
+      const mockTx = { stage: TransactionStage.CANCELLED } as MockTransaction;
+      mockTransactionModel.findById.mockResolvedValue(mockTx);
+
+      await expect(service.cancel('some-id')).rejects.toThrow(
+        'Transaction is already cancelled.',
+      );
+    });
+
+    it('should update stage to CANCELLED and log the action', async () => {
+      const mockTx = {
+        _id: 'some-id',
+        stage: TransactionStage.EARNEST_MONEY,
+        save: jest.fn().mockReturnThis(),
+        toObject: jest.fn().mockReturnValue({}),
+      } as unknown as MockTransaction;
+
+      mockTx.save.mockResolvedValue(mockTx);
+      mockTransactionModel.findById.mockResolvedValue(mockTx);
+
+      const result = await service.cancel('some-id');
+
+      expect(result.stage).toEqual(TransactionStage.CANCELLED);
+      expect(mockTx.save).toHaveBeenCalled();
+      expect(mockAuditLogsService.logAction).toHaveBeenCalledWith(
+        'TRANSACTION',
+        'some-id',
+        'CANCELLED',
+        expect.any(Object),
+      );
+    });
   });
 
   describe('Stage Transitions & Business Rules', () => {
@@ -73,7 +157,6 @@ describe('TransactionsService', () => {
     });
 
     it('should allow valid transition (AGREEMENT to EARNEST_MONEY)', async () => {
-      // ÇÖZÜM: any kullanarak TypeScript'i susturuyoruz ve save'i objeye atıyoruz
       const mockTx = {
         _id: 'some-id',
         stage: TransactionStage.AGREEMENT,
