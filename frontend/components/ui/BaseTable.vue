@@ -9,7 +9,7 @@ const props = defineProps({
   currentPage: { type: Number, default: 1 },
   totalPages: { type: Number, default: 1 },
   totalItems: { type: Number, default: 0 },
-  searchPlaceholder: { type: String, default: "Ara..." },
+  searchPlaceholder: { type: String, default: "Search..." },
 });
 
 const emit = defineEmits(["change-page", "search"]);
@@ -84,7 +84,7 @@ const handlePageChange = (newPage) => {
                 :colspan="headers.length"
                 class="px-6 py-12 text-center text-brand-muted italic"
               >
-                Görüntülenecek veri bulunamadı.
+                No records found. Try adjusting your search or filters?
               </td>
             </tr>
 
