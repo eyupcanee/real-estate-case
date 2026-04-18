@@ -6,6 +6,8 @@ import { Transaction, TransactionStage } from './schemas/transaction.schema';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AgentsService } from '../agents/agents.service';
 import { PropertiesService } from '../properties/properties.service';
+import { Property } from '../properties/schema/property.schema';
+import { Agent } from '../agents/schemas/agent.schema';
 
 interface MockTransaction {
   _id: string;
@@ -41,6 +43,15 @@ describe('TransactionsService', () => {
     findById: jest.fn(),
   };
 
+  const mockPropertyModel = {
+    findById: jest.fn(),
+  };
+
+  const mockAgentModel = {
+    findById: jest.fn(),
+    findOne: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -48,6 +59,14 @@ describe('TransactionsService', () => {
         {
           provide: getModelToken(Transaction.name),
           useValue: mockTransactionModel,
+        },
+        {
+          provide: getModelToken(Property.name),
+          useValue: mockPropertyModel,
+        },
+        {
+          provide: getModelToken(Agent.name),
+          useValue: mockAgentModel,
         },
         { provide: AuditLogsService, useValue: mockAuditLogsService },
         { provide: AgentsService, useValue: mockAgentsService },

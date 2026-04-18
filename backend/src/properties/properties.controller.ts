@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { PropertiesService } from './properties.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
 
@@ -9,9 +9,21 @@ export class PropertiesController {
   constructor(private readonly propertiesService: PropertiesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all properties for selection' })
-  findAll() {
-    return this.propertiesService.findAll();
+  @ApiOperation({
+    summary:
+      'Get paginated list of properties with optional page, limit, and search query parameters',
+  })
+  @ApiQuery({ name: 'search', required: false })
+  async findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.propertiesService.findAll(
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 10,
+      search || '',
+    );
   }
 
   @Get(':id')

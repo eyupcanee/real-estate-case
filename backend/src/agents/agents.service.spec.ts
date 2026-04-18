@@ -8,6 +8,9 @@ describe('AgentsService', () => {
 
   const mockAgentModel = {
     find: jest.fn().mockReturnValue({
+      sort: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
       exec: jest
         .fn()
         .mockResolvedValue([
@@ -19,6 +22,7 @@ describe('AgentsService', () => {
     }),
     countDocuments: jest.fn().mockResolvedValue(3),
     insertMany: jest.fn(),
+    findOne: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -35,13 +39,41 @@ describe('AgentsService', () => {
     service = module.get<AgentsService>(AgentsService);
   });
 
-  it('should return all agents', async () => {
-    const agents = await service.findAll();
-    expect(agents).toHaveLength(1);
-    expect(agents[0].fullName).toBe('Test Agent');
-    expect(mockAgentModel.find).toHaveBeenCalled();
+  it('should create a new agent', async () => {
+    const createDto = { fullName: 'New Agent', email: 'new@agent.com' };
+    const savedAgent = { _id: 'mock-id', ...createDto };
+
+    jest.spyOn(service, 'create').mockResolvedValue(savedAgent as any);
+
+    const result = await service.create(createDto);
+
+    expect(result).toEqual(savedAgent);
+    expect(result.fullName).toBe('New Agent');
   });
 
+  it('should throw BadRequestException if email exists', async () => {
+    const createDto = { fullName: 'Duplicate', email: 'test@test.com' };
+
+    mockAgentModel.findOne = jest
+      .fn()
+      .mockResolvedValue({ email: 'test@test.com' });
+
+    await expect(service.create(createDto)).rejects.toThrow(
+      'An agent with this email already exists.',
+    );
+  });
+
+  it('should return all agents', async () => {
+    const result = await service.findAll();
+
+    expect(result.data).toHaveLength(1);
+
+    expect(result.data[0].fullName).toBe('Test Agent');
+
+    expect(result.meta.total).toBe(3);
+
+    expect(mockAgentModel.find).toHaveBeenCalled();
+  });
   it('should find an agent by id', async () => {
     const mockAgent = { _id: '123', fullName: 'Agent X' };
     mockAgentModel.findById.mockReturnValue({

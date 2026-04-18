@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 
 import { Transaction, TransactionStage } from './schemas/transaction.schema';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
@@ -12,10 +12,14 @@ import { UpdateStageDto } from './dto/update-stage.dto';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AgentsService } from '../agents/agents.service';
 import { PropertiesService } from '../properties/properties.service';
+import { Property } from '../properties/schema/property.schema';
+import { Agent } from '../agents/schemas/agent.schema';
 
 @Injectable()
 export class TransactionsService {
-  private readonly STAGE_TRANSITIONS = {
+  private readonly STAGE_TRANSITIONS: Partial<
+    Record<TransactionStage, TransactionStage>
+  > = {
     [TransactionStage.AGREEMENT]: TransactionStage.EARNEST_MONEY,
     [TransactionStage.EARNEST_MONEY]: TransactionStage.TITLE_DEED,
     [TransactionStage.TITLE_DEED]: TransactionStage.COMPLETED,
@@ -24,6 +28,12 @@ export class TransactionsService {
   constructor(
     @InjectModel(Transaction.name)
     private readonly transactionModel: Model<Transaction>,
+
+    @InjectModel(Property.name)
+    private readonly propertyModel: Model<any>,
+
+    @InjectModel(Agent.name)
+    private readonly agentModel: Model<any>,
 
     private readonly auditLogsService: AuditLogsService,
     private readonly agentsService: AgentsService,
@@ -65,6 +75,9 @@ export class TransactionsService {
     }
     const transaction = new this.transactionModel({
       ...createDto,
+      propertyId: new Types.ObjectId(createDto.propertyId),
+      listingAgentId: new Types.ObjectId(createDto.listingAgentId),
+      sellingAgentId: new Types.ObjectId(createDto.sellingAgentId),
       stage: TransactionStage.AGREEMENT,
     });
 
@@ -117,12 +130,48 @@ export class TransactionsService {
     return updatedTransaction;
   }
 
-  async findAll(page: number = 1, limit: number = 10) {
+  async findAll(page: number = 1, limit: number = 10, search = '') {
+    const query: Record<string, unknown> = {};
+
+    if (search) {
+      const regex = new RegExp(search, 'i');
+
+      const matchingProps = await this.propertyModel
+        .find({ $or: [{ title: regex }, { location: regex }] })
+        .select('_id')
+        .lean<{ _id: Types.ObjectId }[]>();
+
+      const matchingAgents = await this.agentModel
+        .find({ $or: [{ fullName: regex }, { email: regex }] })
+        .select('_id')
+        .lean<{ _id: Types.ObjectId }[]>();
+
+      const propIds = matchingProps.map(
+        (p) => new Types.ObjectId(p._id.toString()),
+      );
+      const agentIds = matchingAgents.map(
+        (a) => new Types.ObjectId(a._id.toString()),
+      );
+
+      if (propIds.length === 0 && agentIds.length === 0) {
+        return {
+          data: [],
+          meta: { total: 0, page, limit, totalPages: 0 },
+        };
+      }
+
+      query['$or'] = [
+        ...(propIds.length > 0 ? [{ propertyId: { $in: propIds } }] : []),
+        ...(agentIds.length > 0 ? [{ listingAgentId: { $in: agentIds } }] : []),
+        ...(agentIds.length > 0 ? [{ sellingAgentId: { $in: agentIds } }] : []),
+      ];
+    }
+
     const skip = (page - 1) * limit;
 
     const [data, total] = await Promise.all([
       this.transactionModel
-        .find()
+        .find(query)
         .populate('propertyId', 'title location price type')
         .populate('listingAgentId', 'fullName')
         .populate('sellingAgentId', 'fullName')
@@ -130,7 +179,7 @@ export class TransactionsService {
         .skip(skip)
         .limit(limit)
         .exec(),
-      this.transactionModel.countDocuments(),
+      this.transactionModel.countDocuments(query),
     ]);
 
     return {

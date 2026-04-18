@@ -1,4 +1,5 @@
 import {
+  IsEnum,
   IsMongoId,
   IsNotEmpty,
   IsNumber,
@@ -6,6 +7,7 @@ import {
   Min,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { TransactionType } from '../schemas/transaction.schema';
 
 export class CreateTransactionDto {
   @ApiProperty({
@@ -39,4 +41,13 @@ export class CreateTransactionDto {
   @IsMongoId({ message: 'Selling agent ID must be a valid MongoDB ID' })
   @IsNotEmpty()
   sellingAgentId!: string;
+
+  @IsEnum(TransactionType)
+  @IsNotEmpty()
+  @ApiProperty({
+    description: 'The type of the transaction',
+    example: TransactionType.SALE,
+    enum: TransactionType,
+  })
+  transactionType!: TransactionType;
 }

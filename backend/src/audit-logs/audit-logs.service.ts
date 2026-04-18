@@ -39,4 +39,11 @@ export class AuditLogsService {
 
     await newLog.save();
   }
+  async findAll(limit: number = 10) {
+    return this.auditLogModel
+      .find()
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .exec();
+  }
 }
