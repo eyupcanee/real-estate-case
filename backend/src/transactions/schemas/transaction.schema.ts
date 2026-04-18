@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 export enum TransactionStage {
   AGREEMENT = 'agreement',
@@ -7,6 +7,11 @@ export enum TransactionStage {
   TITLE_DEED = 'title_deed',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
+}
+
+export enum TransactionType {
+  SALE = 'SALE',
+  RENTAL = 'RENTAL',
 }
 
 class FinancialBreakdown {
@@ -17,8 +22,8 @@ class FinancialBreakdown {
 
 @Schema({ timestamps: true })
 export class Transaction extends Document {
-  @Prop({ required: true })
-  propertyId!: string;
+  @Prop({ type: Types.ObjectId, ref: 'Property', required: true })
+  propertyId!: Types.ObjectId;
 
   @Prop({
     required: true,
@@ -30,14 +35,17 @@ export class Transaction extends Document {
   @Prop({ required: true })
   totalServiceFee!: number;
 
-  @Prop({ required: true })
-  listingAgentId!: string;
+  @Prop({ type: Types.ObjectId, ref: 'Agent', required: true })
+  listingAgentId!: Types.ObjectId;
 
-  @Prop({ required: true })
-  sellingAgentId!: string;
+  @Prop({ type: Types.ObjectId, ref: 'Agent', required: true })
+  sellingAgentId!: Types.ObjectId;
 
   @Prop({ type: Object })
   financialBreakdown?: FinancialBreakdown;
+
+  @Prop({ required: true, enum: TransactionType })
+  transactionType!: string;
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);

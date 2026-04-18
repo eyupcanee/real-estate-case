@@ -45,8 +45,35 @@ export class PropertiesService implements OnModuleInit {
     }
   }
 
-  async findAll(): Promise<Property[]> {
-    return this.propertyModel.find().exec();
+  async findAll(page: number = 1, limit: number = 10, search: string = '') {
+    const query: Record<string, unknown> = {};
+
+    if (search) {
+      const regex = new RegExp(search, 'i');
+      query.$or = [{ title: regex }, { location: regex }, { type: regex }];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await Promise.all([
+      this.propertyModel
+        .find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.propertyModel.countDocuments(query),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async findById(id: string): Promise<Property | null> {

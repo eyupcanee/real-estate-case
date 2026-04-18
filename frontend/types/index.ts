@@ -1,3 +1,5 @@
+import { TransactionStage } from "../enums";
+
 export interface ApiResponse<T = any> {
   success: boolean;
   message: string;
@@ -30,12 +32,7 @@ export interface Transaction {
   propertyId: Property | string;
   listingAgentId: Agent | string;
   sellingAgentId: Agent | string;
-  stage:
-    | "AGREEMENT"
-    | "EARNEST_MONEY"
-    | "TITLE_DEED"
-    | "COMPLETED"
-    | "CANCELLED";
+  stage: TransactionStage;
   totalServiceFee: number;
   financialBreakdown?: FinancialBreakdown;
   createdAt: string;

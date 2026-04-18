@@ -11,6 +11,7 @@ import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateStageDto } from './dto/update-stage.dto';
 import { ApiOperation } from '@nestjs/swagger/dist/decorators/api-operation.decorator';
+import { ApiQuery } from '@nestjs/swagger';
 
 @Controller('transactions')
 export class TransactionsController {
@@ -36,8 +37,17 @@ export class TransactionsController {
     summary:
       'Get paginated list of transactions with optional page and limit query parameters',
   })
-  async findAll(@Query('page') page: string, @Query('limit') limit: string) {
-    return this.transactionsService.findAll(+page || 1, +limit || 10);
+  @ApiQuery({ name: 'search', required: false })
+  async findAll(
+    @Query('page') page: string,
+    @Query('limit') limit: string,
+    @Query('search') search?: string,
+  ) {
+    return this.transactionsService.findAll(
+      +page || 1,
+      +limit || 10,
+      search || '',
+    );
   }
 
   @Patch(':id/cancel')

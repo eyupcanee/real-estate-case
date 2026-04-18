@@ -6,11 +6,15 @@ import { Transaction, TransactionSchema } from './schemas/transaction.schema';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { AgentsModule } from '../agents/agents.module';
 import { PropertiesModule } from '../properties/properties.module';
+import { Property, PropertySchema } from '../properties/schema/property.schema';
+import { Agent, AgentSchema } from '../agents/schemas/agent.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Transaction.name, schema: TransactionSchema },
+      { name: Property.name, schema: PropertySchema },
+      { name: Agent.name, schema: AgentSchema },
     ]),
     AuditLogsModule,
     AgentsModule,
